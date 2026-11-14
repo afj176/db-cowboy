@@ -11,12 +11,12 @@ __pycache__/
 *.pyc
 crash.txt
 # Brand production material: review evidence, manifests, the retired site and duplicates of what the app ships.
-# The app's own copies live in src/DbCowboy/Assets; the logo kit, icons, avatars, graphics and tokens are tracked in brand/.
+# The app's own copies live in src/DbCowboy/Assets; the logo kit, icons, characters, graphics and tokens are tracked in brand/.
 brand/STATUS.md
 brand/review-evidence/
 brand/site/
-brand/reactions/
-brand/avatars/manifest.json
+brand/mascot-art/
+brand/characters/manifest.json
 brand/integration-manifest.json
 brand/SHA256SUMS.json
 brand/brand-kit.zip

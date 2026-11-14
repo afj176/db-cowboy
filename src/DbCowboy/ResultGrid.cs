@@ -27,7 +27,7 @@ public sealed class ResultGrid : Grid
     public string InitialMessage { get => initialMessage; set { initialMessage = value; if (Table == null) ShowEmpty(true, value); } }
     /// <summary>Heading shown above <see cref="InitialMessage"/> before any data has been loaded.</summary>
     public string InitialTitle { get => initialTitle; set { initialTitle = value; if (Table == null) ShowEmpty(true, initialMessage); } }
-    /// <summary>Name of a reaction still in Assets/reactions (without "-light.png") shown before any data has been loaded.</summary>
+    /// <summary>Name of a mascot still in Assets/mascot (without "-light.png") shown before any data has been loaded.</summary>
     public string? InitialArt { get => initialArt; set { initialArt = value; if (Table == null) ShowEmpty(true, initialMessage); } }
     public string NoRowsMessage { get; set; } = "No rows returned. Your query completed successfully.";
     readonly Dictionary<int, double> widths = [];
@@ -181,7 +181,7 @@ public sealed class ResultGrid : Grid
         emptyTitle.Text = initialTitle; emptyTitle.Visibility = initial && initialTitle.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         artWanted = initial && initialArt != null; FitEmptyArt();
         if (initial && initialArt != null && emptyArt.Source == null)
-            emptyArt.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "reactions", initialArt + "-light.png")));
+            emptyArt.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "mascot", initialArt + "-light.png")));
         // With nothing loaded there is nothing to search, copy or count, so the toolbar and footer stay out of the way.
         if (toolsRow != null && footerRow != null) toolsRow.Visibility = footerRow.Visibility = initial ? Visibility.Collapsed : Visibility.Visible;
     }

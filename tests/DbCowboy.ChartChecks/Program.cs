@@ -79,4 +79,6 @@ Check(cap.Truncated && cap.Table.Rows.Count == 2000 && ChartModel.Build(cap.Tabl
 }
 var lightScene=ChartLayout.Build(d,ChartModel.Build(t,d),1000,500).LightSurface();
 Check(lightScene.Background=="#FFFFFF"&&lightScene.Svg().Contains("fill=\"#FFFFFF\"")&&!lightScene.Marks.Any(m=>m.Color.Equals("#DCE5EF",StringComparison.OrdinalIgnoreCase)),"light chart native/export scene retains readable ink and matching background");
+var earlier=JsonSerializer.Deserialize<List<Profile>>(JsonSerializer.Serialize(new[]{new Profile{Name="Earlier",Identity="Dot"}}).Replace("\"Identity\"","\"Portrait\""))!.Single();
+Check(earlier.Identity=="Dot"&&earlier.Leftovers==null&&JsonSerializer.Serialize(earlier).Contains("\"Identity\":\"Dot\"")&&!JsonSerializer.Serialize(earlier).Contains("Portrait")&&JsonSerializer.Deserialize<Profile>("{\"Name\":\"Plain one\",\"Later\":\"Rowdy 2\"}")!.Identity=="Plain"&&JsonSerializer.Deserialize<Profile>("{\"Identity\":\"Dash\",\"Other\":\"Dot\"}")!.Identity=="Dash","a connection identity saved under an earlier property name is adopted and saved under the current one");
 Console.WriteLine($"{checks} chart checks passed.");

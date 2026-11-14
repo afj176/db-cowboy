@@ -11,7 +11,7 @@ namespace DbCowboy;
 public sealed partial class MainWindow
 {
     static readonly UISettings brandSystemColors = new();
-    static readonly string[] IdentityNames = ["Plain", "Rowdy", "Dash", "Dot"];
+    static readonly string[] IdentityNames = Profile.Identities;
     static readonly string[] IdentityFiles = ["", "01-rowdy.png", "02-dash.png", "03-dot.png"];
     readonly Image connectionIdentity = new() { Width = 32, Height = 32, Visibility = Visibility.Collapsed };
     static BitmapImage Asset(string name) => new(new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", name)));
@@ -67,8 +67,8 @@ public sealed partial class MainWindow
     }
     void UpdateConnectionIdentity(Profile? profile)
     {
-        int index = profile == null ? 0 : Array.IndexOf(IdentityNames, profile.Avatar);
+        int index = profile == null ? 0 : Array.IndexOf(IdentityNames, profile.Identity);
         connectionIdentity.Visibility = index > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (index > 0) { connectionIdentity.Source = Asset(IdentityFiles[index]); ToolTipService.SetToolTip(connectionIdentity, profile!.Name + " · " + profile.Avatar); AutomationProperties.SetName(connectionIdentity, profile.Name + " connection identity"); }
+        if (index > 0) { connectionIdentity.Source = Asset(IdentityFiles[index]); ToolTipService.SetToolTip(connectionIdentity, profile!.Name + " · " + profile.Identity); AutomationProperties.SetName(connectionIdentity, profile.Name + " connection identity"); }
     }
 }

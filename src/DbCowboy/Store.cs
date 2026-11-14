@@ -4,9 +4,22 @@ using System.Text.Json;
 using Npgsql;
 namespace DbCowboy;
 
-public sealed record Profile
+public sealed record Profile : System.Text.Json.Serialization.IJsonOnDeserialized
 {
-    public Guid Id { get; init; } = Guid.NewGuid(); public string Name { get; set; } = "Local Postgres"; public string Host { get; set; } = "localhost"; public int Port { get; set; } = 5432; public string Database { get; set; } = "postgres"; public string Username { get; set; } = "postgres"; public string Ssl { get; set; } = "VerifyFull"; public string RootCertificate { get; set; } = ""; public string Secret { get; set; } = ""; public bool ReadOnly { get; set; } = true; public bool Production { get; set; } public string Avatar { get; set; } = "Plain";
+    public Guid Id { get; init; } = Guid.NewGuid(); public string Name { get; set; } = "Local Postgres"; public string Host { get; set; } = "localhost"; public int Port { get; set; } = 5432; public string Database { get; set; } = "postgres"; public string Username { get; set; } = "postgres"; public string Ssl { get; set; } = "VerifyFull"; public string RootCertificate { get; set; } = ""; public string Secret { get; set; } = ""; public bool ReadOnly { get; set; } = true; public bool Production { get; set; } public string Identity { get; set; } = "Plain";
+    /// <summary>The art a connection can wear; the first means none.</summary>
+    public static readonly string[] Identities = ["Plain", "Rowdy", "Dash", "Dot"];
+    // Earlier versions saved the identity under an earlier property name. Whatever a file holds that is not a
+    // property of this record lands here while it is read; a leftover value that names an identity is adopted, and
+    // nothing is kept, so the next save writes only the current names.
+    [System.Text.Json.Serialization.JsonExtensionData] public Dictionary<string, JsonElement>? Leftovers { get; set; }
+    void System.Text.Json.Serialization.IJsonOnDeserialized.OnDeserialized()
+    {
+        if (Identity == Identities[0] && Leftovers != null)
+            foreach (var value in Leftovers.Values)
+                if (value.ValueKind == JsonValueKind.String && Array.IndexOf(Identities, value.GetString()) > 0) { Identity = value.GetString()!; break; }
+        Leftovers = null;
+    }
     public string ConnectionString(string password) => new NpgsqlConnectionStringBuilder { Host = Host, Port = Port, Database = Database, Username = Username, Password = password, SslMode = Enum.Parse<SslMode>(Ssl), RootCertificate = string.IsNullOrWhiteSpace(RootCertificate) ? null : RootCertificate, Timeout = 10, CommandTimeout = 60, ApplicationName = "DB Cowboy", Pooling = true, MaxPoolSize = 4, IncludeErrorDetail = false }.ConnectionString;
     public override string ToString() => Name;
     public bool Favorite { get; set; }

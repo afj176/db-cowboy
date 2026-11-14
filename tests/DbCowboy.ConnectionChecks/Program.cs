@@ -15,7 +15,7 @@ Check(list.Count==2&&list[0].Name=="Renamed"&&list[0].Id==saved.Id,"editing pres
 Check(ConnectionProfiles.Upsert(list,favorite).Count==3,"saving a new profile adds it once");
 var copy=ConnectionProfiles.Duplicate(favorite);Check(copy.Id!=favorite.Id&&copy.Name.EndsWith(" copy")&&!copy.Favorite&&copy.LastConnected==null&&copy.Host==favorite.Host,"duplicate retains endpoint with independent identity and history");
 var key=ConnectionProfiles.SessionKey(saved,"example");
-Check(key==ConnectionProfiles.SessionKey(saved with{Name="New name",Avatar="Dot",Favorite=true,Production=true,LastConnected=DateTimeOffset.Now},"example"),"presentation edits do not require reconnect");
+Check(key==ConnectionProfiles.SessionKey(saved with{Name="New name",Identity="Dot",Favorite=true,Production=true,LastConnected=DateTimeOffset.Now},"example"),"presentation edits do not require reconnect");
 foreach(var changed in new[]{saved with{Host="127.0.0.1"},saved with{Port=9999},saved with{Database="another"},saved with{Username="other"},saved with{Ssl="Require"},saved with{RootCertificate="root.pem"},saved with{ReadOnly=false}})Check(key!=ConnectionProfiles.SessionKey(changed,"example"),"session key detects changed "+(changed.Host!=saved.Host?"host":changed.Port!=saved.Port?"port":changed.Database!=saved.Database?"database":changed.Username!=saved.Username?"user":changed.Ssl!=saved.Ssl?"TLS":changed.RootCertificate!=saved.RootCertificate?"certificate":"read-only default"));
 Check(key!=ConnectionProfiles.SessionKey(saved,"different"),"password changes require reconnect");
 Check(!JsonSerializer.Serialize(saved).Contains("Endpoint"),"derived endpoint display is not persisted");

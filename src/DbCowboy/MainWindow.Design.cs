@@ -252,21 +252,21 @@ public sealed partial class MainWindow
         return grid;
     }
 
-    /// <summary>Rowdy's reaction art. The transparent light still is used on both themes, by the owner's choice.</summary>
-    static Image Reaction(string name, double size = 120)
+    /// <summary>Rowdy's mascot art. The transparent light still is used on both themes, by the owner's choice.</summary>
+    static Image Mascot(string name, double size = 120)
     {
-        var image = new Image { Width = size, Height = size, Stretch = Stretch.Uniform, Source = new BitmapImage(new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "reactions", name + "-light.png"))) };
+        var image = new Image { Width = size, Height = size, Stretch = Stretch.Uniform, Source = new BitmapImage(new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "mascot", name + "-light.png"))) };
         AutomationProperties.SetAccessibilityView(image, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         return image;
     }
 
     /// <summary>A centered empty or blocked state: one character moment, what is true, and the next step.</summary>
-    static FrameworkElement EmptyState(string reaction, string title, string body, params UIElement[] actions)
+    static FrameworkElement EmptyState(string mood, string title, string body, params UIElement[] actions)
     {
         var heading = Display(title, 22); heading.TextAlignment = TextAlignment.Center;
         var detail = Muted(body, 14); detail.TextAlignment = TextAlignment.Center; detail.MaxWidth = 460;
         var panel = new StackPanel { Spacing = 10, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24, 32, 24, 32) };
-        panel.Children.Add(Reaction(reaction, 132)); panel.Children.Add(heading); panel.Children.Add(detail);
+        panel.Children.Add(Mascot(mood, 132)); panel.Children.Add(heading); panel.Children.Add(detail);
         if (actions.Length > 0) { var row = Row(actions); row.HorizontalAlignment = HorizontalAlignment.Center; row.Margin = new Thickness(0, 6, 0, 0); panel.Children.Add(row); }
         return panel;
     }

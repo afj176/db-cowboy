@@ -98,11 +98,11 @@ public sealed partial class MainWindow
     /// <summary>Identity art when the profile has one; otherwise its initial on a quiet tile.</summary>
     static FrameworkElement ConnectionIdentityArt(Profile profile, double size)
     {
-        int avatar = Array.IndexOf(IdentityNames, profile.Avatar);
-        if (avatar > 0)
+        int identity = Array.IndexOf(IdentityNames, profile.Identity);
+        if (identity > 0)
         {
-            var art = new Image { Width = size, Height = size, Stretch = Stretch.Uniform, Source = Asset(IdentityFiles[avatar]), VerticalAlignment = VerticalAlignment.Top };
-            AutomationProperties.SetName(art, profile.Avatar);
+            var art = new Image { Width = size, Height = size, Stretch = Stretch.Uniform, Source = Asset(IdentityFiles[identity]), VerticalAlignment = VerticalAlignment.Top };
+            AutomationProperties.SetName(art, profile.Identity);
             return art;
         }
         var initial = Display(profile.Name.Trim().Length > 0 ? profile.Name.Trim()[..1].ToUpperInvariant() : "?", size * .42);

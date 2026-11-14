@@ -15,12 +15,12 @@ DB Cowboy is a native Windows workspace for PostgreSQL: SQL tabs, table editing,
 
 Two smaller characters keep him company. **Dash** is an index: an amber diamond in a teal cap, sharp and wry. **Dot** is an embedding: a round face among three mint lobes, curious and cheerful.
 
-<img src="avatars/01-rowdy.png" alt="Rowdy" width="96"> <img src="avatars/02-dash.png" alt="Dash" width="96"> <img src="avatars/03-dot.png" alt="Dot" width="96">
+<img src="characters/01-rowdy.png" alt="Rowdy" width="96"> <img src="characters/02-dash.png" alt="Dash" width="96"> <img src="characters/03-dot.png" alt="Dot" width="96">
 
 Where Rowdy appears in the app:
 
 - **Home.** The full-body Rowdy tips his hat beside the tagline. There is a light and a dark drawing, and he steps aside when the window gets narrow.
-- **Empty states.** A reaction sits above a short title and one next step. "Got you" invites a start ("Your first connection starts here"), "Wait, what?" marks an empty list or a search with no match, and "I'm done" appears when something could not be read. A fourth reaction, "That's good", ships with the app and has no page yet.
+- **Empty states.** A mascot mood sits above a short title and one next step. "Got you" invites a start ("Your first connection starts here"), "Wait, what?" marks an empty list or a search with no match, and "I'm done" appears when something could not be read. A fourth mood, "That's good", ships with the app and has no page yet.
 - **Connections.** Each saved connection can wear Rowdy, Dash or Dot, or stay plain. The character shows at 32 px in the sidebar, without the round backdrop.
 - **Title bar, taskbar and installer.** Rowdy's head is the icon everywhere.
 
@@ -38,7 +38,7 @@ Please don't:
 | `brand-primary-outlined` | The default: Rowdy's head and the wordmark side by side, on light backgrounds. |
 | `brand-reversed` | The same lockup with a cream wordmark, for dark backgrounds. |
 | `brand-secondary-outlined` | The stacked version, for square or narrow spaces. |
-| `brand-symbol` | Rowdy's head alone: app icons, avatars, favicons. |
+| `brand-symbol` | Rowdy's head alone: app icons, profile pictures, favicons. |
 | `brand-mono` | One-colour printing. The head becomes a plain hat-and-cylinder shape. |
 | `brand-wordmark-outlined` | The lettering alone, when Rowdy is already nearby. |
 
@@ -116,10 +116,10 @@ The cowboy lives in the drawing and the tagline, not in the buttons. Errors are 
 | `logo-kit/preview` | The logo usage sheet |
 | `logo-kit/fonts` | Manrope and its licence |
 | `icons` | The Windows icon (`windows.ico`), its PNG sizes from 16 to 1024 px and a maskable web icon |
-| `avatars` | Rowdy, Dash and Dot on round backdrops, 512 px |
+| `characters` | Rowdy, Dash and Dot on round backdrops, 512 px |
 | `graphics` | Rowdy's full-body drawing for light and dark backgrounds, the profile picture, a 1500 × 500 header, and 1200 × 630 and 1080 × 1080 share images |
 
-The app keeps its own copies of the art it shows, including the reactions, in [`src/DbCowboy/Assets`](../src/DbCowboy/Assets). The website is in [`site`](../site).
+The app keeps its own copies of the art it shows, including the mascot art, in [`src/DbCowboy/Assets`](../src/DbCowboy/Assets). The website is in [`site`](../site).
 
 ## Licence
 
