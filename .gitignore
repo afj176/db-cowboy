@@ -1,0 +1,27 @@
+# Build output and local state
+**/bin/
+**/obj/
+.cache/
+artifacts/
+TestResults/
+.vs/
+*.user
+*.log
+__pycache__/
+*.pyc
+crash.txt
+# Brand production material: review evidence, manifests, the retired site and duplicates of what the app ships.
+# The app's own copies live in src/DbCowboy/Assets; the logo kit, icons, avatars, graphics and tokens stay here.
+branding/STATUS.md
+branding/kit-v2/review-evidence/
+branding/kit-v2/site/
+branding/kit-v2/packs/reactions/
+branding/kit-v2/packs/avatars/manifest.json
+branding/kit-v2/integration-manifest.json
+branding/kit-v2/SHA256SUMS.json
+branding/kit-v2/logo/brand-kit.zip
+branding/kit-v2/logo/package/handoff.json
+branding/kit-v2/logo/package/manifest.json
+branding/kit-v2/logo/package/qa-report.json
+# Internal review notes from development
+docs/ux/

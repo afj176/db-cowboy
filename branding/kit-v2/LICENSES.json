@@ -1,0 +1,8 @@
+{
+  "font": {"family":"Manrope","license":"SIL Open Font License 1.1","file":"logo/package/fonts/LICENSE-Manrope.txt","source":"Unchanged Manrope variable font; see logo/package/fonts/FONT-LICENSES.json"},
+  "logo": {"source":"Original authored vector character geometry and licensed Manrope outlines"},
+  "mascot": {"source":"Original model-assisted hero illustration and a separate reference-controlled dark edit","exclusive_rights_or_trademark_clearance_claimed":false},
+  "avatars": {"source":"Original model-assisted art"},
+  "reactions": {"source":"Original model-assisted stills and animation; shipped in src/DbCowboy/Assets/reactions"},
+  "application_dependencies": "The portable application includes THIRD-PARTY-NOTICES.md. Windows system fonts are referenced, not redistributed."
+}

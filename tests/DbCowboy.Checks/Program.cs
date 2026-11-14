@@ -1,0 +1,60 @@
+using DbCowboy;
+using System.Data;
+using Npgsql;
+int checks=0;
+void Check(bool value,string name){if(!value)throw new Exception("FAIL: "+name);Console.WriteLine("PASS: "+name);checks++;}
+async Task Reject(Func<Task> action,string name){try{await action();}catch{Check(true,name);return;}throw new Exception("FAIL expected rejection: "+name);}
+var ct=CancellationToken.None;
+var profile=new Profile{Name="Cowboy integration",Host="127.0.0.1",Port=55439,Database="cowboy_test",Username="postgres",Ssl="Disable",ReadOnly=false};
+await using var db=new Db(profile,"");
+var serverVersion=await db.Test(ct);Check(serverVersion.StartsWith("17.")||serverVersion.StartsWith("18."),"Docker PostgreSQL 17 or 18 connection");
+await db.Query("CREATE EXTENSION IF NOT EXISTS vector; CREATE SCHEMA IF NOT EXISTS cowboy_demo; DROP TABLE IF EXISTS cowboy_demo.documents; DROP TABLE IF EXISTS cowboy_demo.collections; CREATE TABLE cowboy_demo.collections(id integer PRIMARY KEY,name text NOT NULL); CREATE TABLE cowboy_demo.documents(id integer PRIMARY KEY,collection_id integer REFERENCES cowboy_demo.collections(id),title text NOT NULL,body text,metadata jsonb,embedding vector(3),compact halfvec(3)); INSERT INTO cowboy_demo.collections VALUES(1,'Field notes'); INSERT INTO cowboy_demo.documents SELECT i,1,'Note '||i,CASE WHEN i=1 THEN NULL ELSE 'Text '||i END,jsonb_build_object('topic',CASE WHEN i%2=0 THEN 'engineering' ELSE 'design' END),ARRAY[sin(i::float),cos(i::float),i/600.0]::vector,ARRAY[sin(i::float),cos(i::float),i/600.0]::halfvec FROM generate_series(1,600) i; CREATE INDEX ON cowboy_demo.documents USING hnsw(embedding vector_cosine_ops)",ct,false);
+Check((await db.Relations(ct)).Any(x=>x.Schema=="cowboy_demo"&&x.Name=="documents"),"schema discovery");
+var vectors=await db.Vectors(ct);Check(vectors.Count(x=>x.Schema=="cowboy_demo")==2,"vector and halfvec discovery");
+var r=await db.Query("SELECT * FROM cowboy_demo.documents ORDER BY id LIMIT 250",ct,true);Check(r.Table.Rows.Count==250,"page row count");Check(r.Table.Rows[0]["body"]==DBNull.Value,"SQL NULL preserved");Check(((string)r.Table.Rows[0]["embedding"]).StartsWith("["),"unmapped pgvector display");
+var metadata=await db.Query("SELECT conname FROM pg_constraint WHERE contype='f' AND conrelid='cowboy_demo.documents'::regclass",ct,true);Check(metadata.Table.Rows.Count==1,"foreign key discovery");
+await Reject(()=>db.Query("UPDATE cowboy_demo.documents SET title='blocked' WHERE id=1",ct,true),"read-only transaction rejects writes");
+Check((string)(await db.Query("SELECT title FROM cowboy_demo.documents WHERE id=1",ct,true)).Table.Rows[0][0]=="Note 1","read-only rejected write did not persist");
+await Reject(()=>db.Query("INSERT INTO cowboy_demo.collections VALUES(99,'rollback'); SELECT 1/0",ct,false),"SQL error rolls back transaction");Check((string)(await db.Query("SELECT count(*) FROM cowboy_demo.collections WHERE id=99",ct,true)).Table.Rows[0][0]=="0","multi-statement rollback");
+var multi=await db.Query("SELECT 1 AS first; SELECT 2 AS second",ct,true);Check(multi.Table.Columns[0].ColumnName=="second","last result set policy");
+var large=await db.Query("SELECT generate_series(1,2100)",ct,true);Check(large.Table.Rows.Count==2000&&large.Truncated,"result display cap");
+var quoted=Db.Q("odd\" table");Check(quoted=="\"odd\"\" table\"","identifier quoting");
+var search=await db.Query("SELECT id,embedding <=> CAST(@v AS vector) AS distance FROM cowboy_demo.documents ORDER BY embedding <=> CAST(@v AS vector) LIMIT 25",ct,true,("v","[0.84147096,0.5403023,0.0016666667]"));Check((string)search.Table.Rows[0][0]=="1","cosine nearest neighbor order");
+var half=await db.Query("SELECT id FROM cowboy_demo.documents ORDER BY compact <-> CAST(@v AS halfvec) LIMIT 25",ct,true,("v","[0.84147096,0.5403023,0.0016666667]"));Check(half.Table.Rows.Count==25,"halfvec nearest neighbors");
+using(var cancel=new CancellationTokenSource(250)){await Reject(()=>db.Query("SELECT pg_sleep(10)",cancel.Token,true),"query cancellation");}
+Check((string)(await db.Query("SELECT 1",ct,true)).Table.Rows[0][0]=="1","connection reusable after cancellation");
+var pca=Embeddings.Pca(new[]{new[]{-2d,-4d,0d},new[]{0d,0d,0d},new[]{2d,4d,0d}});Check(pca.Dimensions==3&&pca.Explained>.999,"PCA collinear explained variance");Check(pca.Points.All(p=>p.All(double.IsFinite)),"PCA finite coordinates");
+var same=Embeddings.Pca(new[]{new[]{1d,1d},new[]{1d,1d}});Check(same.Explained==0&&same.Points.All(x=>x.All(v=>v==0)),"PCA identical-vector degeneracy");
+await Reject(()=>Task.Run(()=>Embeddings.Parse("[1e999,2]")),"non-finite vectors rejected");await Reject(()=>Task.Run(()=>Embeddings.Pca(new[]{new[]{1d},new[]{1d,2d}})),"mixed dimensions rejected");
+Check(Store.Unprotect(Store.Protect("integration password"))=="integration password","Windows DPAPI round trip");
+var scratch=Path.Combine(Directory.GetCurrentDirectory(),"artifacts","checks");Directory.CreateDirectory(scratch);var csv=new DataTable();csv.Columns.Add("quoted,header");csv.Rows.Add("a\"b\nc");Db.Csv(csv,Path.Combine(scratch,"quoted.csv"));Check(File.ReadAllText(Path.Combine(scratch,"quoted.csv")).Contains("\"a\"\"b\nc\""),"CSV newline and quote escaping");
+Console.WriteLine($"{checks} checks passed. Docker fixture cowboy_demo retained for UI verification.");
+// Advanced workspace regression gates.
+var multiple=await db.Query("SELECT 1 AS x; SELECT 2 AS y",ct,true);Check(multiple.Results.Count==2,"all result sets preserved");
+var duplicates=await db.Query("SELECT 1 AS a,2 AS a,3 AS a_1,4 AS a",ct,true);Check(duplicates.Table.Columns.Count==4&&duplicates.Table.Columns.Cast<DataColumn>().Select(c=>c.ColumnName).Distinct().Count()==4,"duplicate aliases safely disambiguated");
+var columns=await db.Columns(new("cowboy_demo","documents","r",600),ct);Check(columns.Any(c=>c.Name=="title"&&!c.Nullable)&&columns.Any(c=>c.Name=="body"&&c.Nullable),"catalog nullable metadata");
+var edges=await db.ForeignKeys(ct);Check(edges.Any(k=>k.SourceTable=="documents"&&k.SourceColumns.SequenceEqual(new[]{"collection_id"})&&k.TargetColumns.SequenceEqual(new[]{"id"})),"structured relationship metadata");
+var completions=await db.Completions(ct);Check(completions.Any(c=>c.Label=="cowboy_demo.documents"&&c.Insert=="\"cowboy_demo\".\"documents\""),"schema-aware quoted completion");
+var statements="SELECT 'a;b'; /* nested /* ; */ comment */ SELECT $$body;still$$; SELECT 3;";Check(SqlLanguage.CurrentStatement(statements,statements.IndexOf("body",StringComparison.Ordinal)).Contains("$$body;still$$"),"statement lexer ignores strings and nested comment semicolons");
+Check(SqlLanguage.Tokens("SELECT E'a\\\';b'; SELECT 2").Count(t=>t.Kind==SqlTokenKind.String)==1,"escaped PostgreSQL strings lexed as one token");
+var raw="select 'a; b' as literal, 4+2 as answer -- keep comment\nfrom (select 1) s where true";var formatted=SqlLanguage.Format(raw);Check((string)(await db.Query(formatted,ct,true)).Table.Rows[0][0]=="a; b","formatter preserves SQL string/comment semantics");
+Check(SqlLanguage.Complete("doc",completions).Any(c=>c.Label=="documents"),"completion prefix matching");
+await db.Query("DROP TABLE IF EXISTS cowboy_demo.row_ops; CREATE TABLE cowboy_demo.row_ops(id integer PRIMARY KEY,label text NOT NULL DEFAULT 'default',n integer,generated integer GENERATED ALWAYS AS (n*2) STORED)",ct,false);
+var rel=new Relation("cowboy_demo","row_ops","r",0);
+var insert=new PendingChange(ChangeKind.Insert,rel,new(){{"id","1"},{"n","4"}},[]);await db.CommitChanges([insert],ct);var inserted=await db.Query("SELECT * FROM cowboy_demo.row_ops WHERE id=1",ct,true);Check((string)inserted.Table.Rows[0]["label"]=="default"&&(string)inserted.Table.Rows[0]["generated"]=="8","staged insert uses defaults and generated fields");
+Check((await db.Columns(rel,ct)).Single(c=>c.Name=="generated").Generated,"generated catalog flag");
+var snapshot=PendingChange.Snapshot(inserted.Table.Rows[0]);await db.CommitChanges([new(ChangeKind.Update,rel,new(){{"label","hello"},{"n",null}},snapshot)],ct);var after=await db.Query("SELECT * FROM cowboy_demo.row_ops WHERE id=1",ct,true);Check((string)after.Table.Rows[0]["label"]=="hello"&&after.Table.Rows[0]["n"]==DBNull.Value,"staged typed edit and NULL");
+await Reject(()=>db.CommitChanges([new(ChangeKind.Insert,rel,new(){{"id","2"}},[]),new(ChangeKind.Update,rel,new(){{"label","stale"}},snapshot)],ct),"staged batch rejects concurrent changes");Check((string)(await db.Query("SELECT count(*) FROM cowboy_demo.row_ops WHERE id=2",ct,true)).Table.Rows[0][0]=="0","entire staged batch rolls back on conflict");
+await Reject(()=>db.CommitChanges([new(ChangeKind.Insert,rel,new(){{"id","3"},{"generated","5"}},[])],ct),"generated assignments rejected");
+await db.CommitChanges([new(ChangeKind.Delete,rel,[],PendingChange.Snapshot(after.Table.Rows[0]))],ct);Check((string)(await db.Query("SELECT count(*) FROM cowboy_demo.row_ops",ct,true)).Table.Rows[0][0]=="0","staged delete committed");
+await db.Query("DROP TABLE cowboy_demo.row_ops",ct,false);
+var parsed=QueryPlans.Parse("[{\"Plan\":{\"Node Type\":\"Limit\",\"Total Cost\":12.5,\"Plan Rows\":5,\"Plans\":[{\"Node Type\":\"Seq Scan\",\"Relation Name\":\"documents\",\"Total Cost\":30,\"Plan Rows\":600}]}}]");Check(parsed.Children.Single().Relation=="documents"&&parsed.Rows==5,"query plan hierarchy parsed");
+var plan=await db.Query("EXPLAIN (FORMAT JSON) SELECT * FROM cowboy_demo.documents WHERE id=1",ct,true);Check(QueryPlans.Parse((string)plan.Table.Rows[0][0]).Rows>=1,"live PostgreSQL JSON plan");
+using(var cancelled=new CancellationTokenSource()){cancelled.Cancel();await Reject(()=>Task.Run(()=>Embeddings.Pca(new[]{new[]{1d,2d},new[]{2d,3d}},cancelled.Token)),"PCA worker honors cancellation");}
+Check(Math.Abs(Embeddings.Cosine(new[]{1d,0d},new[]{1d,0d})-1)<1e-12&&double.IsNaN(Embeddings.Cosine(new[]{0d,0d},new[]{1d,0d})),"cosine diagnostics handle zero vectors");
+Console.WriteLine($"TOTAL {checks} checks passed.");
+Check(SqlLanguage.CurrentStatement("SELECT 1;",9)=="SELECT 1;","current statement remains runnable after trailing semicolon");
+Check(SqlLanguage.CurrentStatement("SELECT 1; SELECT 2;  ",21)=="SELECT 2;","current statement resolves trailing whitespace");
+var metadataFields=EmbeddingMetadata.Flatten("{\"id\":\"1\",\"metadata\":\"{\\\"topic\\\":\\\"design\\\"}\"}");Check(metadataFields["metadata.topic"]=="design","nested JSON embedding metadata categories");
+using(var pretty=System.Text.Json.JsonDocument.Parse(EmbeddingMetadata.Pretty("{\"metadata\":\"{\\\"topic\\\":\\\"design\\\"}\",\"body\":\"{unfinished text\"}"))) Check(pretty.RootElement.GetProperty("metadata").GetProperty("topic").GetString()=="design"&&pretty.RootElement.GetProperty("body").GetString()=="{unfinished text","point inspector expands JSON metadata while preserving ordinary text");
+Console.WriteLine($"FINAL {checks} checks passed.");
