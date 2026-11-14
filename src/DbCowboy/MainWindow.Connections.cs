@@ -40,45 +40,6 @@ public sealed partial class MainWindow
     }
     async void NewConnectionClick(object sender, RoutedEventArgs e) => await EditConnection(null);
     void ConnectionsClick(object sender,RoutedEventArgs e){Navigate("Connections");RenderConnectionLibrary();}
-    async Task<bool> EditConnection(Profile? prior,bool asNew=false)
-    {
-        if (operation != null || dialogOpen || connectingProfile!=null) return false;
-        bool isNew=prior==null||asNew;
-        var p = prior ?? new Profile{Ssl="Disable"}; var name = new TextBox { Header = "Connection name", Text = p.Name, MaxLength = 80 }; var host = new TextBox { Header = "Host", Text = p.Host }; var port = new NumberBox { Header = "Port", Value = p.Port, Minimum = 1, Maximum = 65535, Width = 120, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
-        var database = new TextBox { Header = "Database", Text = p.Database }; var user = new TextBox { Header = "Username", Text = p.Username }; var password = new PasswordBox { Header = "Password" };
-        var tls = new ComboBox { Header = "TLS mode", ItemsSource = new[] { "VerifyFull", "VerifyCA", "Require", "Prefer", "Disable" }, SelectedItem = p.Ssl, HorizontalAlignment = HorizontalAlignment.Stretch }; var cert = new TextBox { Header = "Root certificate PEM path (optional)", Text = p.RootCertificate };
-        var remember = new CheckBox { Content = "Remember password for this Windows account", IsChecked = p.Secret.Length > 0 }; var ro = new CheckBox { Content = "Read-only by default", IsChecked = p.ReadOnly }; var prod = new CheckBox { Content = "Mark as production", IsChecked = p.Production };
-        var resultText = Text("VerifyFull encrypts and validates the server identity. For a local Docker container without TLS, choose Disable.", 12); resultText.MaxWidth = 440;
-        try { password.Password = passwords.GetValueOrDefault(p.Id) ?? Store.Unprotect(p.Secret); } catch { resultText.Text = "This saved password could not be decrypted. Enter it again for this Windows account."; }
-        bool passwordChanged=false;password.PasswordChanged+=(_,_)=>passwordChanged=true;
-        var hostRow = new Grid { ColumnSpacing = 10 }; hostRow.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) }); hostRow.ColumnDefinitions.Add(new() { Width = GridLength.Auto }); hostRow.Children.Add(host); Grid.SetColumn(port, 1); hostRow.Children.Add(port);
-        var identity = new ComboBox { Header = "Connection identity", ItemsSource = IdentityNames, SelectedItem = IdentityNames.Contains(p.Identity) ? p.Identity : "Plain", HorizontalAlignment = HorizontalAlignment.Stretch }; var preview = new Image { Width = 64, Height = 64, Visibility = Visibility.Collapsed }; identity.SelectionChanged += (_, _) => { int n = identity.SelectedIndex; preview.Visibility = n > 0 ? Visibility.Visible : Visibility.Collapsed; if (n > 0) preview.Source = Asset(IdentityFiles[n]); }; if (identity.SelectedIndex > 0) { preview.Source = Asset(IdentityFiles[identity.SelectedIndex]); preview.Visibility = Visibility.Visible; };
-        var testResult = Text("", 12); var test = Button("Test connection", async (_, _) => { if (!Valid()) return; using var cancelTest = new CancellationTokenSource(TimeSpan.FromSeconds(15)); try { await using var probe = new Db(Value(), password.Password); testResult.Text = "Testing…"; var version = await probe.Test(cancelTest.Token); testResult.Text = "Connected successfully · PostgreSQL " + version; } catch (Exception ex) { testResult.Text = ex.Message; } });
-        var advanced=new Expander{Header="Transport & appearance · TLS "+p.Ssl,Content=Stack(tls,cert,resultText,Row(identity,preview)),HorizontalAlignment=HorizontalAlignment.Stretch,HorizontalContentAlignment=HorizontalAlignment.Stretch};tls.SelectionChanged+=(_,_)=>advanced.Header="Transport & appearance · TLS "+tls.SelectedItem;
-        bool tlsChosen=false,changingTls=false;tls.SelectionChanged+=(_,_)=>{if(!changingTls)tlsChosen=true;};host.TextChanged+=(_,_)=>{if(prior==null&&!tlsChosen){changingTls=true;try{tls.SelectedItem=ConnectionProfiles.DefaultTls(host.Text);}finally{changingTls=false;}}};
-        // Grouped the way you think about a connection: where it is, how you sign in, how careful to be.
-        var content = Stack(
-            Eyebrow("Server"), name, hostRow, database,
-            Eyebrow("Sign in"), user, password, remember, Muted("Connection details are always saved. A password you do not remember stays in this app session only.", 12),
-            Eyebrow("Safety"), ro, prod, Muted("Production connections carry a warning in the sidebar, on SQL and in every confirmation.", 12),
-            advanced, Row(test), testResult);
-        content.Margin = new Thickness(0, 0, 14, 0); var scroll = new ScrollViewer { Content = content, MaxHeight = Math.Clamp(root.ActualHeight-230,250,540), MinWidth = 500,VerticalScrollBarVisibility=ScrollBarVisibility.Auto };
-        bool Valid() { bool valid = !string.IsNullOrWhiteSpace(name.Text) && !string.IsNullOrWhiteSpace(host.Text) && !string.IsNullOrWhiteSpace(database.Text) && !string.IsNullOrWhiteSpace(user.Text) && double.IsFinite(port.Value) && port.Value == Math.Truncate(port.Value) && port.Value is >= 1 and <= 65535; if (!valid) testResult.Text = "Enter a connection name, host, database, username and valid integer port."; return valid; }
-        Profile Value() => p with { Name = name.Text.Trim(), Host = host.Text.Trim(), Port = (int)port.Value, Database = database.Text.Trim(), Username = user.Text.Trim(), Ssl = (string)tls.SelectedItem, RootCertificate = cert.Text.Trim(), Secret = remember.IsChecked == true ? (!passwordChanged&&p.Secret.Length>0?p.Secret:Store.Protect(password.Password)) : "", ReadOnly = ro.IsChecked == true, Production = prod.IsChecked == true, Identity = (string)identity.SelectedItem };
-        var dialog = StyleDialog(new ContentDialog { XamlRoot = root.XamlRoot, Title = isNew ? "New Postgres connection" : "Edit "+p.Name, Content = scroll, PrimaryButtonText = isNew?"Save & connect":"Save changes", SecondaryButtonText = isNew?"Save only":"", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary, RequestedTheme = root.RequestedTheme }); dialog.PrimaryButtonClick += (_, args) => { if (!Valid()) args.Cancel = true; };dialog.SecondaryButtonClick+=(_,args)=>{if(!Valid())args.Cancel=true;};
-        dialogOpen = true; ContentDialogResult result; try { result = await dialog.ShowAsync(); } finally { dialogOpen = false; }
-        if (result == ContentDialogResult.None) return false;
-        var updated=Value();if(!SaveProfile(updated))return false;
-        if(passwordChanged||password.Password.Length>0||passwords.ContainsKey(p.Id))passwords[updated.Id]=password.Password;
-        requestPassword.Remove(updated.Id);connectionErrors.Remove(updated.Id);
-        bool changedActive=db?.Profile.Id==updated.Id&&!SavedSettingsAreActive(updated);
-        if(!changedActive&&db?.Profile.Id==updated.Id){db.Profile.Name=updated.Name;db.Profile.Identity=updated.Identity;db.Profile.Production=updated.Production;UpdateConnectionIdentity(db.Profile);}
-        RefreshConnectionChrome();
-        string saved=Store.IsUnreadable(Store.ConnectionsFile)?"Kept for this session only (connections.json is left unchanged)":"Saved";
-        status.Text=changedActive?saved+" · reconnect to apply; the current session is unchanged":saved+" · ready to reuse";
-        if(isNew&&result==ContentDialogResult.Primary)await ConnectProfile(updated);else if(isNew)Navigate("Connections");return true;
-    }
-
     async void ConnectClick(object sender, RoutedEventArgs e)
     {
         if(operation!=null||connectingProfile!=null||dialogOpen)return;
@@ -86,14 +47,14 @@ public sealed partial class MainWindow
         await ConnectProfile(profile);
     }
     bool SavedSettingsAreActive(Profile profile)=>db?.Profile.Id==profile.Id&&passwords.TryGetValue(profile.Id,out var password)&&activeSessionKey==ConnectionProfiles.SessionKey(profile,password);
-    async Task ConnectProfile(Profile requested,bool reconnect=false)
+    async Task ConnectProfile(Profile requested,bool reconnect=false,string? knownPassword=null)
     {
         if(operation!=null||connectingProfile!=null||dialogOpen)return;
         if(pendingChanges.Count>0){await Notice("Pending changes","Apply or discard staged changes before switching or reconnecting.");return;}
         var p=profiles.FirstOrDefault(p=>p.Id==requested.Id)??requested;
         if(!reconnect&&SavedSettingsAreActive(p)){Navigate(lastWorkspacePage);status.Text="Using active session · "+db!.Profile.Name;return;}
         connections.SelectedItem=p;
-        var credential=await ConnectionPassword(p);if(credential==null){status.Text=db==null?"Connection cancelled":"Connection cancelled · "+db.Profile.Name+" remains active";return;}
+        (string Password,bool? Remember)? credential=knownPassword!=null?(knownPassword,null):await ConnectionPassword(p);if(credential==null){status.Text=db==null?"Connection cancelled":"Connection cancelled · "+db.Profile.Name+" remains active";return;}
         string password=credential.Value.Password;connectingProfile=p.Id;RefreshConnectionChrome();
         try{await Work(async ct=>
         {
@@ -101,18 +62,19 @@ public sealed partial class MainWindow
             try{prepared=await PreparedConnection.Open(p,password,ct);}
             catch(OperationCanceledException){connectionErrors.Remove(p.Id);throw;}
             catch(Npgsql.PostgresException ex)when(ex.SqlState is "28P01" or "28000"){passwords.Remove(p.Id);requestPassword.Add(p.Id);connectionErrors[p.Id]="Authentication failed · try again to enter a new password";throw;}
+            catch(SshHostKeyChangedException){connectionErrors[p.Id]="The SSH server's host key changed · edit the connection to review it";throw;}
             catch{connectionErrors[p.Id]=db==null?"Could not connect · check saved details":"Could not connect · "+db.Profile.Name+" remains active";throw;}
             SaveWorkspace();var previous=db;db=prepared.Database;activeSessionKey=ConnectionProfiles.SessionKey(p,password);passwords[p.Id]=password;requestPassword.Remove(p.Id);connectionErrors.Remove(p.Id);
             relations=prepared.Relations;completionCatalog=prepared.Completions;foreignKeys=prepared.ForeignKeys;current=null;keys=[];currentColumns=[];filter.Text="";
             tableGrid.Clear();columnsGrid.Clear();indexesGrid.Clear();foreignKeysGrid.Clear();ResetVectorExploration();vectorColumn.ItemsSource=prepared.Vectors;vectorColumn.SelectedIndex=prepared.Vectors.Count>0?0:-1;readOnly.IsChecked=p.ReadOnly;
             UpdateConnectionIdentity(p);
             LoadWorkspace(p.Id);await RefreshVectorSources(prepared.Vectors,ct,prepared.Sources);RenderObjects();relationships.Show(relations,foreignKeys,null);
-            SaveProfile(ConnectionProfiles.WithCredentials(p,password,credential.Value.Remember) with{LastConnected=DateTimeOffset.Now});
+            SaveProfile(ConnectionProfiles.WithCredentials(p,password,credential.Value.Remember) with{LastConnected=DateTimeOffset.Now,SshHostKey=prepared.Database.TunnelHostKey??p.SshHostKey});
             if(previous!=null)await previous.DisposeAsync();
             string restoreNote="";
             if(workspace.Connections.TryGetValue(p.Id,out var saved)&&saved.Schema!=null&&saved.Table!=null&&relations.FirstOrDefault(r=>r.Schema==saved.Schema&&r.Name==saved.Table)is{} restored)
             {current=restored;page=0;try{await Structure(ct);await Browse(ct);}catch(OperationCanceledException){restoreNote=" · previous table restore cancelled";}catch{current=null;tableGrid.Clear();restoreNote=" · previous table unavailable; choose another";}}
-            tableOpened?.Invoke();Navigate(lastWorkspacePage);SaveWorkspaceSoon();status.Text=$"Connected · {p.Name} · {RelationCount()} · TLS {p.Ssl}"+restoreNote;
+            tableOpened?.Invoke();Navigate(lastWorkspacePage);SaveWorkspaceSoon();status.Text=$"Connected · {p.Name} · {RelationCount()} · TLS {p.Ssl}"+(p.Ssh?" · over SSH":"")+restoreNote;
         },vectorReadOnly:true);}
         finally{connectingProfile=null;RefreshConnectionChrome();}
     }

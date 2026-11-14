@@ -19,11 +19,42 @@ public sealed record Profile : System.Text.Json.Serialization.IJsonOnDeserialize
             foreach (var value in Leftovers.Values)
                 if (value.ValueKind == JsonValueKind.String && Array.IndexOf(Identities, value.GetString()) > 0) { Identity = value.GetString()!; break; }
         Leftovers = null;
+        // Profiles saved before tags existed carry only the production mark.
+        if (Production && Tag.Length == 0) Tag = "Production";
     }
-    public string ConnectionString(string password) => new NpgsqlConnectionStringBuilder { Host = Host, Port = Port, Database = Database, Username = Username, Password = password, SslMode = Enum.Parse<SslMode>(Ssl), RootCertificate = string.IsNullOrWhiteSpace(RootCertificate) ? null : RootCertificate, Timeout = 10, CommandTimeout = 60, ApplicationName = "DB Cowboy", Pooling = true, MaxPoolSize = 4, IncludeErrorDetail = false }.ConnectionString;
+    /// <summary>
+    /// The Npgsql connection string. <paramref name="via"/> is the local end of an SSH tunnel; the server's own
+    /// name is still what TLS verifies (see <see cref="Db"/>).
+    /// </summary>
+    public string ConnectionString(string password, (string Host, int Port)? via = null) => new NpgsqlConnectionStringBuilder
+    {
+        Host = via?.Host ?? Host, Port = via?.Port ?? Port, Database = Database, Username = Username, Password = password, SslMode = Enum.Parse<SslMode>(Ssl),
+        RootCertificate = string.IsNullOrWhiteSpace(RootCertificate) ? null : RootCertificate,
+        SslCertificate = string.IsNullOrWhiteSpace(ClientCertificate) ? null : ClientCertificate,
+        SslKey = string.IsNullOrWhiteSpace(ClientKey) ? null : ClientKey,
+        Timeout = 10, CommandTimeout = 60, ApplicationName = "DB Cowboy", Pooling = true, MaxPoolSize = 4, IncludeErrorDetail = false
+    }.ConnectionString;
     public override string ToString() => Name;
     public bool Favorite { get; set; }
     public DateTimeOffset? LastConnected { get; set; }
+
+    /// <summary>What kind of database this is. "Production" keeps <see cref="Production"/> set; empty means untagged.</summary>
+    public string Tag { get; set; } = "";
+    public static readonly string[] Tags = ["", "Local", "Development", "Staging", "Production"];
+    /// <summary>Never keep the password: ask for it on every connect.</summary>
+    public bool AskPassword { get; set; }
+    /// <summary>Client certificate and private key files (PEM) for servers that authenticate by certificate.</summary>
+    public string ClientCertificate { get; set; } = ""; public string ClientKey { get; set; } = "";
+
+    // SSH tunnel: the database is reached from the SSH server, not from this computer.
+    public bool Ssh { get; set; } public string SshHost { get; set; } = ""; public int SshPort { get; set; } = 22; public string SshUser { get; set; } = "";
+    public string SshKeyFile { get; set; } = "";
+    /// <summary>The SSH password, or the private key's passphrase, protected for this Windows account.</summary>
+    public string SshSecret { get; set; } = "";
+    /// <summary>The SSH server's host key fingerprint, recorded on the first connection and required to match afterwards.</summary>
+    public string SshHostKey { get; set; } = "";
+    /// <summary>Everything about the tunnel that changes which server a session talks to.</summary>
+    [System.Text.Json.Serialization.JsonIgnore] public string TunnelKey => Ssh ? $"{SshUser}@{SshHost}:{SshPort}|{SshKeyFile}|{SshSecret}" : "";
     [System.Text.Json.Serialization.JsonIgnore] public string Endpoint=>$"{Database} · {Host}:{Port} · {Username}";
 }
 public sealed record QueryLog(DateTime At, string Connection, string Sql, int Rows, long Milliseconds);

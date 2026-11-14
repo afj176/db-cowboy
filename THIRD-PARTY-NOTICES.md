@@ -5,6 +5,8 @@
 - Npgsql 10.0.3: PostgreSQL License. https://github.com/npgsql/npgsql/blob/main/LICENSE
 - Microsoft.Extensions.Logging.Abstractions and Microsoft.Extensions.DependencyInjection.Abstractions 10.0.0 (used by Npgsql): Microsoft .NET, MIT.
 - System.Security.Cryptography.ProtectedData: Microsoft .NET, MIT.
+- SSH.NET 2026.0.1 (SSH tunnels): MIT license. https://github.com/sshnet/SSH.NET/blob/develop/LICENSE
+- BouncyCastle.Cryptography 2.7.0 (used by SSH.NET): MIT license. https://github.com/bcgit/bc-csharp/blob/master/LICENSE.md
 - Windows system fonts are referenced from Windows and are not redistributed.
 
 No PostgreSQL server, pgvector extension binaries or browser runtime is bundled. The Docker images used by the checks are separate from application delivery.
