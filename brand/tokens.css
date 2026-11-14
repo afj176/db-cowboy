@@ -1,0 +1,72 @@
+/* DB Cowboy brand tokens. The same values as tokens.json.
+   Dark applies with the system setting, or when data-theme="dark" is set on the root element. */
+:root {
+  --palette-paper: #F8F4EC;
+  --palette-white: #FFFFFF;
+  --palette-ink: #19272E;
+  --palette-muted: #58656A;
+  --palette-line: #7B8A90;
+  --palette-copper: #C76335;
+  --palette-saddle: #B55D32;
+  --palette-action: #A64F22;
+  --palette-cream: #FFF0D2;
+  --palette-amber: #F5B761;
+  --palette-teal: #287F80;
+  --palette-mint: #84C8BD;
+  --palette-danger: #B43D3C;
+  --palette-coral: #F08C87;
+  --palette-night: #101B21;
+  --palette-slate: #131F26;
+  --palette-raised: #1A2A33;
+  --palette-silver: #B3C3CB;
+
+  --font-display: "Manrope", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --font-body: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, monospace;
+
+  --radius-card: 12px;
+  --radius-dialog: 12px;
+
+  --color-background: var(--palette-paper);
+  --color-surface: var(--palette-white);
+  --color-text: var(--palette-ink);
+  --color-text-muted: var(--palette-muted);
+  --color-accent: var(--palette-action);
+  --color-button: var(--palette-saddle);
+  --color-on-accent: var(--palette-white);
+  --color-border: rgba(123, 138, 144, 0.24);
+  --color-success: var(--palette-teal);
+  --color-danger: var(--palette-danger);
+  --color-focus: var(--palette-teal);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-background: var(--palette-slate);
+    --color-surface: var(--palette-raised);
+    --color-text: var(--palette-paper);
+    --color-text-muted: var(--palette-silver);
+    --color-accent: var(--palette-amber);
+    --color-button: var(--palette-amber);
+    --color-on-accent: var(--palette-night);
+    --color-border: rgba(179, 195, 203, 0.16);
+    --color-success: var(--palette-mint);
+    --color-danger: var(--palette-coral);
+    --color-focus: var(--palette-mint);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --color-background: var(--palette-slate);
+  --color-surface: var(--palette-raised);
+  --color-text: var(--palette-paper);
+  --color-text-muted: var(--palette-silver);
+  --color-accent: var(--palette-amber);
+  --color-button: var(--palette-amber);
+  --color-on-accent: var(--palette-night);
+  --color-border: rgba(179, 195, 203, 0.16);
+  --color-success: var(--palette-mint);
+  --color-danger: var(--palette-coral);
+  --color-focus: var(--palette-mint);
+  color-scheme: dark;
+}

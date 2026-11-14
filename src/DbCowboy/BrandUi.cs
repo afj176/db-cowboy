@@ -8,7 +8,7 @@ namespace DbCowboy;
 
 /// <summary>
 /// Brand surfaces for controls that live outside <see cref="MainWindow"/> (the result grid, query tabs, the SQL editor).
-/// Colours come from branding/kit-v2/brand-contract.json. Windows high contrast always wins over them.
+/// Colours come from brand/tokens.json. Windows high contrast always wins over them.
 /// </summary>
 static class BrandUi
 {

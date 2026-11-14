@@ -10,7 +10,7 @@ using Windows.UI.ViewManagement;
 namespace DbCowboy;
 
 /// <summary>
-/// Brand presentation shared by the database pages. Colors come from branding/kit-v2/brand-contract.json;
+/// Brand presentation shared by the database pages. Colors come from brand/tokens.json;
 /// Windows high contrast always wins over them.
 /// </summary>
 public sealed partial class MainWindow
