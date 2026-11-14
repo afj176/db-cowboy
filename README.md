@@ -57,10 +57,10 @@ Prerequisites: Windows 10 2004+ or Windows 11, and the [.NET 10 SDK](https://dot
 dotnet build src/DbCowboy/DbCowboy.csproj -c Debug -p:Platform=x64
 
 # Release payload and portable zip in artifacts\DbCowboy-<version>-win-x64
-.\scripts\Publish.ps1 -Version 0.43.1
+.\scripts\Publish.ps1 -Version 0.43.2
 
 # ...plus the installer
-.\scripts\Publish.ps1 -Version 0.43.1 -Installer -InnoCompiler "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+.\scripts\Publish.ps1 -Version 0.43.2 -Installer -InnoCompiler "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 ```
 
 `Publish.ps1` refuses to overwrite an existing release folder, so pass a version that has not been published yet. It also checks that no profile data ends up in the payload.
