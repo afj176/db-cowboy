@@ -89,4 +89,4 @@ Everything stays on your computer. DB Cowboy talks only to the PostgreSQL server
 
 ## License
 
-License: to be decided. Third-party components are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). The Manrope font is under the SIL Open Font License 1.1.
+[MIT](LICENSE). Third-party components are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). The Manrope font is under the SIL Open Font License 1.1.

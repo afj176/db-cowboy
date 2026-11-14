@@ -10,6 +10,7 @@ dotnet publish (Join-Path $appRoot 'src/DbCowboy/DbCowboy.csproj') -c Release -r
 if($LASTEXITCODE -ne 0){throw 'App publish failed'}
 & (Join-Path $PSScriptRoot 'Assert-ReleasePayload.ps1') -Payload $payload
 Copy-Item -LiteralPath (Join-Path $appRoot 'README.md') -Destination $payload
+Copy-Item -LiteralPath (Join-Path $appRoot 'LICENSE') -Destination $payload
 Copy-Item -LiteralPath (Join-Path $appRoot 'THIRD-PARTY-NOTICES.md') -Destination $payload
 if(-not(Test-Path -LiteralPath (Join-Path $payload 'DbCowboy.exe')) -or -not(Test-Path -LiteralPath (Join-Path $payload 'DbCowboy.pri'))){throw 'Executable or WinUI resources missing'}
 Get-ChildItem -LiteralPath $payload -File -Recurse | ForEach-Object{[pscustomobject]@{Path=$_.FullName.Substring($payload.Length+1);Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash;Bytes=$_.Length}} | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $payload 'payload-manifest.json') -Encoding utf8
