@@ -11,7 +11,32 @@ public sealed partial class Db : IAsyncDisposable
 {
     public Guid SessionIdentity { get; } = Guid.NewGuid();
     readonly NpgsqlDataSource source; public Profile Profile { get; }
-    public Db(Profile profile, string password) { Profile = profile; var b = new NpgsqlDataSourceBuilder(profile.ConnectionString(password)); b.EnableUnmappedTypes(); source = b.Build(); }
+    readonly SshTunnel? tunnel;
+    /// <summary>The SSH server's host key as seen by this session's tunnel; null without a tunnel.</summary>
+    public string? TunnelHostKey => tunnel?.HostKey;
+    /// <summary>A session, optionally through an SSH tunnel that it then owns and closes with itself.</summary>
+    public Db(Profile profile, string password, SshTunnel? tunnel = null)
+    {
+        Profile = profile; this.tunnel = tunnel;
+        var b = new NpgsqlDataSourceBuilder(profile.ConnectionString(password, tunnel == null ? null : ("127.0.0.1", tunnel.LocalPort)));
+        b.UseSslClientAuthenticationOptionsCallback(options =>
+        {
+            // .NET on Windows caches TLS credentials for the whole process, and a connection with no client certificate
+            // can pick up the credential of an earlier connection that had one, so it would present a certificate
+            // applied to a different connection. Whether sessions may resume is part of what the cache matches on,
+            // so connections with a certificate are kept apart from those without by giving them a different setting.
+            options.AllowTlsResume = string.IsNullOrWhiteSpace(profile.ClientCertificate);
+            // Through a tunnel the socket goes to 127.0.0.1, but the certificate belongs to the real server, so TLS names and verifies that host.
+            if (tunnel != null) options.TargetHost = profile.Host;
+        });
+        b.EnableUnmappedTypes(); source = b.Build();
+    }
+    /// <summary>Opens the profile's SSH tunnel when it has one, then the session over it.</summary>
+    public static async Task<Db> Connect(Profile profile, string password, CancellationToken ct)
+    {
+        var tunnel = profile.Ssh ? await SshTunnel.Open(profile, ct) : null;
+        try { return new Db(profile, password, tunnel); } catch { tunnel?.Dispose(); throw; }
+    }
     public static string Q(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
     public async Task<string> Test(CancellationToken ct) { await using var c = await source.OpenConnectionAsync(ct); return c.PostgreSqlVersion.ToString(); }
     public async Task<QueryResult> Query(string sql, CancellationToken ct, bool? readOnly = null, params (string Name, object Value)[] args)
@@ -33,7 +58,7 @@ public sealed partial class Db : IAsyncDisposable
     }
     public async Task<List<Relation>> Relations(CancellationToken ct) { var r = await Query("SELECT n.nspname,c.relname,c.relkind,c.reltuples::bigint FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%' AND pg_catalog.has_schema_privilege(n.oid,'USAGE') ORDER BY 1,2", ct, true); return r.Table.Rows.Cast<DataRow>().Select(x => new Relation((string)x[0], (string)x[1], (string)x[2], long.Parse((string)x[3]))).ToList(); }
     public async Task<List<VectorColumn>> Vectors(CancellationToken ct) { var r = await Query("SELECT n.nspname,c.relname,a.attname,t.typname,tn.nspname FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_type t ON t.oid=a.atttypid JOIN pg_namespace tn ON tn.oid=t.typnamespace WHERE t.typname IN ('vector','halfvec') AND a.attnum>0 AND NOT a.attisdropped AND c.relkind IN ('r','p','m','v') AND pg_catalog.has_schema_privilege(n.oid,'USAGE') AND pg_catalog.has_table_privilege(c.oid,'SELECT') ORDER BY 1,2,3", ct, true); return r.Table.Rows.Cast<DataRow>().Select(x => new VectorColumn((string)x[0], (string)x[1], (string)x[2], (string)x[3], (string)x[4])).ToList(); }
-    public ValueTask DisposeAsync() => source.DisposeAsync();
+    public async ValueTask DisposeAsync() { await source.DisposeAsync(); tunnel?.Dispose(); }
     public static void Csv(DataTable table, string path) { using var w = new StreamWriter(path, false, new UTF8Encoding(true)); string Esc(object? v) => "\"" + (v == DBNull.Value ? "" : Convert.ToString(v, CultureInfo.InvariantCulture) ?? "").Replace("\"", "\"\"") + "\""; w.WriteLine(string.Join(",", table.Columns.Cast<DataColumn>().Select(c => Esc(c.ColumnName)))); foreach (DataRow r in table.Rows) w.WriteLine(string.Join(",", r.ItemArray.Select(Esc))); }
 }
 

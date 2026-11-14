@@ -127,6 +127,8 @@ public sealed partial class MainWindow
         if (connectingProfile == p.Id) pills.Children.Add(Pill("Connecting…", Tone.Accent));
         else if (active) pills.Children.Add(Pill("Active session", Tone.Good));
         if (p.Production) pills.Children.Add(Pill("Production", Tone.Warn));
+        else if (p.Tag.Length > 0) pills.Children.Add(Pill(p.Tag));
+        if (p.Ssh) pills.Children.Add(Pill("SSH"));
         if (p.Favorite) pills.Children.Add(Pill("Favorite", Tone.Accent));
         pills.Children.Add(Pill(p.ReadOnly ? "Read-only by default" : "Writes need confirmation"));
 
@@ -135,7 +137,7 @@ public sealed partial class MainWindow
         ToolTipService.SetToolTip(name, p.Name);
         var endpoint = Text($"{p.Host}:{p.Port} / {p.Database}", 13);
         endpoint.TextWrapping = TextWrapping.NoWrap; endpoint.TextTrimming = TextTrimming.CharacterEllipsis; endpoint.IsTextSelectionEnabled = true;
-        string credential = p.Secret.Length > 0 ? "password saved for this Windows account" : passwords.ContainsKey(p.Id) ? "password held for this app session" : "password asked when connecting";
+        string credential = p.AskPassword ? "password asked every time" : p.Secret.Length > 0 ? "password saved for this Windows account" : passwords.ContainsKey(p.Id) ? "password held for this app session" : "password asked when connecting";
         var facts = Muted($"{p.Username} · TLS {p.Ssl} · {credential}", 12);
 
         var info = new StackPanel { Spacing = 3 };
@@ -214,7 +216,7 @@ public sealed partial class MainWindow
     }
     async Task<(string Password,bool? Remember)?> ConnectionPassword(Profile profile)
     {
-        if(!requestPassword.Contains(profile.Id))
+        if(!requestPassword.Contains(profile.Id)&&!profile.AskPassword)
         {
             if(passwords.TryGetValue(profile.Id,out var cached))return(cached,null);
             try{if(profile.Secret.Length>0)return(Store.Unprotect(profile.Secret),null);}catch{requestPassword.Add(profile.Id);}

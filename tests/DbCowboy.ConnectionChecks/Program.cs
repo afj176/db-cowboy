@@ -30,6 +30,27 @@ var workspace=new WorkspaceState{LastSelectedConnection=recent.Id};workspace.Con
 var restored=JsonSerializer.Deserialize<WorkspaceState>(JsonSerializer.Serialize(workspace))!;
 Check(restored.LastSelectedConnection==recent.Id&&restored.Connections[saved.Id].View=="Vector lab"&&restored.Connections[recent.Id].Documents[0].Sql=="SELECT 2","selected profile and independent workspace views survive restart");
 Check(JsonSerializer.Deserialize<ConnectionWorkspace>("{\"Documents\":[],\"ActiveDocument\":\"00000000-0000-0000-0000-000000000000\"}")!.View=="Query","legacy workspace defaults to query view");
+var url=ConnectionUrl.Parse("postgres://app:p%40ss@db.example.com:6543/orders?sslmode=require")!;
+Check(url is{Host:"db.example.com",Port:6543,Database:"orders",Username:"app",Password:"p@ss",Ssl:"Require"},"a postgres URL fills host, port, database, user, password and TLS mode");
+Check(ConnectionUrl.Parse("postgresql://app@db.example.com/orders") is{Port:null,Password:null,Ssl:null,Database:"orders"},"a URL leaves what it does not name untouched");
+Check(ConnectionUrl.Parse("host=db.example.com port=5433 dbname=orders user=app password='a b' sslmode=verify-ca") is{Host:"db.example.com",Port:5433,Database:"orders",Password:"a b",Ssl:"VerifyCA"},"a libpq keyword string is read, including quoted values");
+Check(ConnectionUrl.Parse("Host=h;Database=d") is{Host:"h",Database:"d",Port:null,Ssl:null}&&ConnectionUrl.Parse("Host=h;Port=5;SSL Mode=Require") is{Port:5,Ssl:"Require"},"an Npgsql string reports only the keys it names");
+Check(ConnectionUrl.Parse("hello")==null&&ConnectionUrl.Parse("postgres://")==null&&ConnectionUrl.Parse("x=y")==null&&ConnectionUrl.Parse("")==null,"text that is not a connection string is rejected");
+var legacy=JsonSerializer.Deserialize<Profile>("{\"Name\":\"Legacy\",\"Production\":true}")!;
+Check(legacy.Tag=="Production"&&!legacy.Ssh&&!legacy.AskPassword&&legacy.SshPort==22,"a profile saved before tags carries its production mark into the tag");
+Check(ConnectionProfiles.Ordered(new[]{saved with{Tag="Staging"}},"staging").Count()==1,"search finds a connection by its tag");
+var tunnelled=saved with{Ssh=true,SshHost="bastion",SshUser="me",SshSecret="x"};
+Check(key!=ConnectionProfiles.SessionKey(tunnelled,"example")&&ConnectionProfiles.SessionKey(tunnelled,"example")!=ConnectionProfiles.SessionKey(tunnelled with{SshHost="other"},"example")&&ConnectionProfiles.SessionKey(tunnelled,"example")==ConnectionProfiles.SessionKey(tunnelled with{SshHostKey="SHA256:abc"},"example"),"an SSH tunnel is part of the session; recording its host key is not");
+Check(key!=ConnectionProfiles.SessionKey(saved with{ClientCertificate="c.pem",ClientKey="c.key"},"example"),"client certificate changes require reconnect");
+Check(!ConnectionProfiles.WithCredentials(saved with{AskPassword=true},"example",true).AskPassword&&ConnectionProfiles.WithCredentials(saved with{AskPassword=true},"example",null).AskPassword,"choosing to remember a password ends ask-every-time; plain reuse keeps it");
+Check(ConnectionProfiles.DefaultName("orders","db.example.com")=="orders on db.example.com"&&ConnectionProfiles.DefaultName(" ","")=="postgres on localhost","an unnamed connection is named from its database and host");
+Check(ConnectionCheck.Plan(saved).Select(s=>s.Key).SequenceEqual(new[]{"reach","tls","signin","database"})&&ConnectionCheck.Plan(tunnelled)[0].Key=="ssh","the connection check plans its stages, with the tunnel first when there is one");
+var refused=await ConnectionCheck.Run(original with{Port=1},password,null,CancellationToken.None);
+Check(!refused.Ok&&refused.Steps.Single(s=>s.State==CheckState.Failed).Key=="reach"&&refused.Steps.Skip(1).All(s=>s.State==CheckState.Pending),"an unreachable server fails at the first stage and tries nothing after it");
+var absent=await ConnectionCheck.Run(original with{Database="no_such_database_here"},password,null,CancellationToken.None);
+Check(!absent.Ok&&absent.Fix=="database"&&absent.Steps.Single(s=>s.State==CheckState.Failed).Key=="database"&&absent.Steps.First(s=>s.Key=="signin").State==CheckState.Ok,"a missing database fails at the last stage with sign-in shown as passed");
+var passed=await ConnectionCheck.Run(original,password,null,CancellationToken.None);
+Check(passed.Ok&&passed.Steps.All(s=>s.State is CheckState.Ok or CheckState.Skipped)&&passed.Steps.Last().Detail.StartsWith("PostgreSQL "),"a working connection passes every stage and reports the server version");
 await using var db=new Db(original,password);var ct=CancellationToken.None;
 async Task<string> Snapshot(){var r=await db.Query("SELECT count(*)::text AS rows,md5(string_agg(md5(to_jsonb(t)::text),'' ORDER BY md5(to_jsonb(t)::text))) AS fingerprint FROM public.word_embeddings t; SELECT count(*)::text AS rows,md5(string_agg(md5(to_jsonb(t)::text),'' ORDER BY id)) AS fingerprint FROM public.words t",ct,true);return string.Join("|",r.Results.SelectMany(t=>t.Rows.Cast<DataRow>()).Select(r=>string.Join(",",r.ItemArray)));}
 var before=await Snapshot();
